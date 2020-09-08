@@ -19,7 +19,7 @@ In this sample application we perform the following operations:
 	| Primary Capacity pool 
 		| Primary NFS v4.1 Volume 
 		
- - Secondary ANF Account
+  - Secondary ANF Account
 	| Secondary Capacity pool
 		| Secondary NFS v4.1 Data Replication Volume with reference to the primary volume Resource ID
 			
