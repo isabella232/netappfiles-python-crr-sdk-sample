@@ -83,8 +83,7 @@ def get_tib_in_bytes(size):
     return size * 1024 * 1024 * 1024 * 1024
 
 
-def wait_for_no_anf_resource(client, resource_id, interval_in_sec=10,
-                             retries=60):
+def wait_for_no_anf_resource(client, resource_id, interval_in_sec=10, retries=60, replication=None):
     """Waits for specific anf resource don't exist
 
     This function checks if a specific ANF resource that was recently delete
@@ -111,12 +110,16 @@ def wait_for_no_anf_resource(client, resource_id, interval_in_sec=10,
                     resource_uri_utils.get_anf_snapshot(resource_id)
                 )
             elif resource_uri_utils.is_anf_volume(resource_id):
-                client.volumes.get(
+                volume = client.volumes.get(
                     resource_uri_utils.get_resource_group(resource_id),
                     resource_uri_utils.get_anf_account(resource_id),
                     resource_uri_utils.get_anf_capacity_pool(resource_id),
                     resource_uri_utils.get_anf_volume(resource_id)
                 )
+
+                if replication == True:
+                    if volume.data_protection == None or volume.data_protection.replication == None:
+                        break
             elif resource_uri_utils.is_anf_capacity_pool(resource_id):
                 client.pools.get(
                     resource_uri_utils.get_resource_group(resource_id),
@@ -132,7 +135,7 @@ def wait_for_no_anf_resource(client, resource_id, interval_in_sec=10,
             break
 
 
-def wait_for_anf_resource(client, resource_id, interval_in_sec=10, retries=60):
+def wait_for_anf_resource(client, resource_id, interval_in_sec=10, retries=60, replication=None):
     """Waits for specific anf resource start existing
 
     This function checks if a specific ANF resource that was recently created
@@ -159,12 +162,16 @@ def wait_for_anf_resource(client, resource_id, interval_in_sec=10, retries=60):
                     resource_uri_utils.get_anf_snapshot(resource_id)
                 )
             elif resource_uri_utils.is_anf_volume(resource_id):
-                client.volumes.get(
+                volume = client.volumes.get(
                     resource_uri_utils.get_resource_group(resource_id),
                     resource_uri_utils.get_anf_account(resource_id),
                     resource_uri_utils.get_anf_capacity_pool(resource_id),
                     resource_uri_utils.get_anf_volume(resource_id)
                 )
+
+                if replication == True:
+                    if volume.data_protection == None:
+                        continue
             elif resource_uri_utils.is_anf_capacity_pool(resource_id):
                 client.pools.get(
                     resource_uri_utils.get_resource_group(resource_id),

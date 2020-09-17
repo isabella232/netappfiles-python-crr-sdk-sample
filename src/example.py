@@ -16,24 +16,23 @@ from sample_utils import console_output, print_header, get_credentials, resource
 # Please NOTE: Resource Group and VNETs need to be created prior to run this code
 # ----------------------------------------------------------------------------------------------------------------------
 
-# Subscription - Change SubId below
-SUBSCRIPTION_ID = "[Subscription ID]"
-
 # Primary ANF
 PRIMARY_RESOURCE_GROUP_NAME = "[Primary Resource Group Name]"
-PRIMARY_LOCATION = "[Primary Resource Group Name]"
+PRIMARY_LOCATION = "[Primary Location]"
 PRIMARY_VNET_NAME = "[Primary VNET Name]"
 PRIMARY_SUBNET_NAME = "[Primary Subnet Name]"
 PRIMARY_ANF_ACCOUNT_NAME = "[Primary ANF Account Name]"
 PRIMARY_CAPACITY_POOL_NAME = "[Primary ANF Capacity Pool Name]"
+PRIMARY_VOLUME_NAME = "[Primary ANF Volume Name]"
 
 # Secondary ANF
 SECONDARY_RESOURCE_GROUP_NAME = "[Secondary Resource Group Name]"
-SECONDARY_LOCATION = "[Secondary Resource Group Name]"
+SECONDARY_LOCATION = "[Secondary Location]"
 SECONDARY_VNET_NAME = "[Secondary VNET Name]"
 SECONDARY_SUBNET_NAME = "[Secondary Subnet Name]"
 SECONDARY_ANF_ACCOUNT_NAME = "[Secondary ANF Account Name]"
 SECONDARY_CAPACITY_POOL_NAME = "[Secondary ANF Capacity Pool Name]"
+SECONDARY_VOLUME_NAME = "[Secondary ANF Volume Name]"
 
 # Shared ANF Properties
 CAPACITY_POOL_SIZE = 4398046511104  # 4TiB which is minimum size
@@ -225,7 +224,6 @@ def run_example():
         subscription_id, PRIMARY_RESOURCE_GROUP_NAME, PRIMARY_VNET_NAME, PRIMARY_SUBNET_NAME)
 
     primary_volume = None
-    primary_volume_name = "PrimaryVol01"
     try:
         pool_name = resource_uri_utils.get_anf_capacity_pool(primary_capacity_pool.id)
 
@@ -233,7 +231,7 @@ def run_example():
                                        PRIMARY_RESOURCE_GROUP_NAME,
                                        primary_account.name,
                                        pool_name,
-                                       primary_volume_name,
+                                       PRIMARY_VOLUME_NAME,
                                        VOLUME_SIZE,
                                        primary_subnet_id,
                                        PRIMARY_LOCATION)
@@ -243,6 +241,9 @@ def run_example():
         console_output("An error occurred while creating Volume: {}".format(ex.message))
         raise
 
+    # Wait for primary volume to be ready
+    console_output("Waiting for {} to be available...".format(resource_uri_utils.get_anf_volume(primary_volume.id)))
+    wait_for_anf_resource(anf_client, primary_volume.id)
 
     console_output("Creating Secondary ANF Resources...")
     # Creating ANF Secondary Account
@@ -283,7 +284,6 @@ def run_example():
         subscription_id, SECONDARY_RESOURCE_GROUP_NAME, SECONDARY_VNET_NAME, SECONDARY_SUBNET_NAME)
 
     data_replication_volume = None
-    data_replication_volume_name = "SecondaryVol02"
     try:
         replication_object = ReplicationObject(endpoint_type="dst", remote_volume_region=PRIMARY_LOCATION, remote_volume_resource_id=primary_volume.id, replication_schedule="hourly")
         data_protection_object = VolumePropertiesDataProtection(replication=replication_object)
@@ -294,7 +294,7 @@ def run_example():
                                                 SECONDARY_RESOURCE_GROUP_NAME,
                                                 secondary_account.name,
                                                 pool_name,
-                                                data_replication_volume_name,
+                                                SECONDARY_VOLUME_NAME,
                                                 VOLUME_SIZE,
                                                 secondary_subnet_id,
                                                 SECONDARY_LOCATION,
@@ -305,7 +305,7 @@ def run_example():
         raise
 
     # Wait for data replication volume to be ready
-    console_output("Waiting for {} to be available...".format(data_replication_volume_name))
+    console_output("Waiting for {} to be available...".format(resource_uri_utils.get_anf_volume(data_replication_volume.id)))
     wait_for_anf_resource(anf_client, data_replication_volume.id)
 
     console_output("Authorizing replication in source region...")
@@ -315,6 +315,10 @@ def run_example():
                                              resource_uri_utils.get_anf_capacity_pool(primary_capacity_pool.id),
                                              resource_uri_utils.get_anf_volume(primary_volume.id),
                                              remote_volume_resource_id=data_replication_volume.id).wait()
+
+    # Wait for replication to initialize on source volume
+    wait_for_anf_resource(anf_client, primary_volume.id, replication=True)
+
 
     # """
     # Cleanup process. For this process to take effect please change the value of
@@ -338,16 +342,29 @@ def run_example():
                 pool_name = resource_uri_utils.get_anf_capacity_pool(volume_id)
                 volume_name = resource_uri_utils.get_anf_volume(volume_id)
 
-                # First we need to remove the replication attached to the volume before we can delete the volume itself
-                # Note that we need to delete the replication from the remote volume first
-                # This erases the replication for both remote and source volumes, thus we pass if the replication cannot be erased a second time
+                # First we need to remove the replication attached to the volume before we can delete the volume itself. We first check if the replication exists and act accordingly
+                # Note that we need to delete the replication using the destination volume's id
+                # This erases the replication for both destination and source volumes
                 try:
+                    # This method throws an exception if no replication is found
+                    anf_client.volumes.replication_status_method(resource_group,
+                                                                 account_name,
+                                                                 pool_name,
+                                                                 volume_name)
+
                     anf_client.volumes.delete_replication(resource_group,
                                                           account_name,
                                                           pool_name,
                                                           volume_name).wait()
+
+                    # Wait for replication to finish deleting
+                    wait_for_no_anf_resource(anf_client, volume_id, replication=True)
                 except CloudError as e:
-                    pass
+                    if e.status_code == 404: # If replication is not found then the volume can be safely deleted. Therefore we pass on this error and proceed to delete the volume
+                        pass
+                    else: # Throw all other exceptions
+                        console_output("An error occurred while deleting replication: {}".format(e.message))
+                        raise
 
                 anf_client.volumes.delete(resource_group,
                                           account_name,
@@ -361,7 +378,7 @@ def run_example():
             console_output("An error occurred while deleting volumes: {}".format(ex.message))
             raise
 
-        # Cleaning up caoacity pools
+        # Cleaning up capacity pools
         console_output("Deleting Capacity Pools...")
 
         try:
