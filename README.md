@@ -93,7 +93,11 @@ This sample project is dedicated to demonstrate how to enable cross-region repli
 1. Change folder to **.\netappfiles-python-crr-sdk-sample\src**
 2. Install any missing dependencies as needed
     ```bash
-    -m pip install -r ./requirements.txt
+    pip install -r ./requirements.txt
+    ```
+    or upgrade dependencies if they already exist
+    ```bash
+    pip install --upgrade ./requirements.txt
     ```
 3. Make sure you have the azureauth.json and its environment variable with the path to it defined (as previously described at [prerequisites](#Prerequisites))
 4. Edit file **example.py** and change the variables contents as appropriate (names are self-explanatory).
