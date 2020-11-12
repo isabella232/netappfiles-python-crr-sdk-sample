@@ -97,7 +97,7 @@ This sample project is dedicated to demonstrate how to enable cross-region repli
     ```
     or upgrade dependencies if they already exist
     ```bash
-    pip install --upgrade ./requirements.txt
+    pip install --upgrade -r ./requirements.txt
     ```
 3. Make sure you have the azureauth.json and its environment variable with the path to it defined (as previously described at [prerequisites](#Prerequisites))
 4. Edit file **example.py** and change the variables contents as appropriate (names are self-explanatory).
