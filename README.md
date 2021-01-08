@@ -10,7 +10,7 @@ description: "This project demonstrates how to use python with NetApp Files SDK 
 
 # Azure NetApp Files Cross-Region Replication (CRR) SDK NFS 4.1 Sample for Python
 
-This project demonstrates how to deploy a cross-region replication enabled with NFS 4.1 protocol using python language and Azure NetApp Files SDK for python.
+This project demonstrates how to deploy a cross-region replication enabled with NFS 4.1 protocol using python language and Azure NetApp Files SDK for python. 
 
 In this sample application, we perform the following operations:
 
@@ -24,7 +24,7 @@ In this sample application, we perform the following operations:
 		| Secondary NFS v4.1 Data Replication Volume with reference to the primary volume Resource ID
 			
  - Authorize source volume with destination volume Resource ID
- - Clean up created resources (not enabled by default)
+ - Clean up created resources (not enabled by default) 
 
 If you don't already have a Microsoft Azure subscription, you can get a FREE trial account [here](http://go.microsoft.com/fwlink/?LinkId=330212).
 
@@ -33,7 +33,7 @@ If you don't already have a Microsoft Azure subscription, you can get a FREE tri
 1. Python (code was built and tested using version 3.8.5)
 2. Azure Subscription
 3. Subscription needs to be whitelisted for Azure NetApp Files. For more information, please refer to [this](https://docs.microsoft.com/azure/azure-netapp-files/azure-netapp-files-register#waitlist) document.
-4. Resource Group created
+4. Resource Group created.
 5. Virtual Network with a delegated subnet to Microsoft.Netapp/volumes resource. For more information, see [Guidelines for Azure NetApp Files network planning](https://docs.microsoft.com/en-us/azure/azure-netapp-files/azure-netapp-files-network-topologies)
 6. For this sample Python console application to work, we need to authenticate, and the chosen method for this sample is using service principals.
    1. Within an [Azure Cloud Shell](https://docs.microsoft.com/en-us/azure/cloud-shell/quickstart) session, make sure you're logged on at the subscription where you want to be associated with the service principal by default:
