@@ -10,7 +10,7 @@ description: "This project demonstrates how to use python with NetApp Files SDK 
 
 # Azure NetApp Files Cross-Region Replication (CRR) SDK NFS 4.1 Sample for Python
 
-This project demonstrates how to deploy a cross-region replication enabled with NFS 4.1 protocol using python language and Azure NetApp Files SDK for python. 
+This project demonstrates how to deploy a cross-region replication enabled with NFS 4.1 protocol using python language and Azure NetApp Files SDK for python.  
 
 In this sample application, we perform the following operations:
 
@@ -26,7 +26,7 @@ In this sample application, we perform the following operations:
  - Authorize source volume with destination volume Resource ID
  - Clean up created resources (not enabled by default) 
 
-If you don't already have a Microsoft Azure subscription, you can get a FREE trial account [here](http://go.microsoft.com/fwlink/?LinkId=330212).
+If you don't already have a Microsoft Azure subscription, you can get a FREE trial account [here](http://go.microsoft.com/fwlink/?LinkId=330212). 
 
 ## Prerequisites
 
