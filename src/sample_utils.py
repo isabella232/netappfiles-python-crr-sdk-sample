@@ -212,3 +212,32 @@ def resource_exists(resource_client, resource_id, api_version):
                 if ie.status_code == 404:
                     return False
         raise # If not 405 or 404, not expected
+
+
+def wait_for_replication_state(client, resource_id, state, interval_in_sec=10, retries=60):
+    """Waits for volume replication status to reach given state
+
+    This function checks if a replication is in given state, and if so breaks the wait.
+    The replication is required to be in state 'Mirrored' before it can be broken.
+    The replication is required to be in state 'Broken' before it can be deleted.
+
+    Args:
+        client (AzureNetAppFilesManagementClient): Azure Resource Provider
+            Client designed to interact with ANF resources
+        resource_id (string): Resource Id of the resource to be checked upon
+        interval_in_sec (int): Interval used between checks
+        retires (int): Number of times a poll will be performed
+    """
+
+    for i in range(0, retries):
+        time.sleep(interval_in_sec)
+        try:
+            status = client.volumes.replication_status_method(resource_uri_utils.get_resource_group(resource_id),
+                                                              resource_uri_utils.get_anf_account(resource_id),
+                                                              resource_uri_utils.get_anf_capacity_pool(resource_id),
+                                                              resource_uri_utils.get_anf_volume(resource_id))
+            if status.mirror_state == state:
+                break
+
+        except CloudError as ex:
+            pass

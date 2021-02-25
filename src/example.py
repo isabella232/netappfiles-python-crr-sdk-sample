@@ -8,7 +8,7 @@ from azure.mgmt.netapp import AzureNetAppFilesManagementClient
 from azure.mgmt.netapp.models import NetAppAccount, CapacityPool, Volume, ExportPolicyRule, VolumePropertiesExportPolicy, VolumePropertiesDataProtection, ReplicationObject
 from azure.mgmt.resource import ResourceManagementClient
 from msrestazure.azure_exceptions import CloudError
-from sample_utils import console_output, print_header, get_credentials, resource_exists, wait_for_no_anf_resource, wait_for_anf_resource
+from sample_utils import console_output, print_header, get_credentials, resource_exists, wait_for_no_anf_resource, wait_for_anf_resource, wait_for_replication_state
 
 
 # ------------------------------------------IMPORTANT------------------------------------------------------------------
@@ -110,7 +110,7 @@ def create_capacity_pool(anf_client, resource_group_name, anf_account_name,
 
 def create_volume(anf_client, resource_group_name, anf_account_name,
                   capacity_pool_name, volume_name, volume_size,
-                  subnet_id, location, data_protection=None, tags=None):
+                  subnet_id, location, data_protection=None, volume_type=None, tags=None):
     """Creates a volume within a capacity pool
 
     Function that in this example creates a NFSv4.1 volume within a capacity
@@ -160,7 +160,8 @@ def create_volume(anf_client, resource_group_name, anf_account_name,
         subnet_id=subnet_id,
         protocol_types=["NFSv4.1"],
         export_policy=export_policies,
-        data_protection=data_protection
+        data_protection=data_protection,
+        volume_type=volume_type
     )
 
     return anf_client.volumes.create_or_update(volume_body,
@@ -298,7 +299,8 @@ def run_example():
                                                 VOLUME_SIZE,
                                                 secondary_subnet_id,
                                                 SECONDARY_LOCATION,
-                                                data_protection_object)
+                                                data_protection_object,
+                                                "DataProtection")
         console_output("\tVolume successfully created. Resource id: {}".format(data_replication_volume.id))
     except CloudError as ex:
         console_output("An error occurred while creating Volume: {}".format(ex.message))
@@ -343,15 +345,30 @@ def run_example():
                 volume_name = resource_uri_utils.get_anf_volume(volume_id)
 
                 # First we need to remove the replication attached to the volume before we can delete the volume itself. We first check if the replication exists and act accordingly
-                # Note that we need to delete the replication using the destination volume's id
+                # Note that we need to break and delete the replication using the destination volume's id
                 # This erases the replication for both destination and source volumes
                 try:
                     # This method throws an exception if no replication is found
-                    anf_client.volumes.replication_status_method(resource_group,
-                                                                 account_name,
-                                                                 pool_name,
-                                                                 volume_name)
+                    replication_status = anf_client.volumes.replication_status_method(resource_group,
+                                                                                      account_name,
+                                                                                      pool_name,
+                                                                                      volume_name)
 
+                    if (replication_status.mirror_state == "Uninitialized"):
+                        console_output("Waiting for replication to reach mirrored state...")
+                        wait_for_replication_state(anf_client, volume_id, "Mirrored")
+
+                    console_output("Breaking volume replication...")
+                    # Break replication before deleting it
+                    anf_client.volumes.break_replication(resource_group,
+                                                         account_name,
+                                                         pool_name,
+                                                         volume_name).wait()
+
+                    wait_for_replication_state(anf_client, volume_id, "Broken")
+
+                    console_output("Deleting volume replication...")
+                    # Delete the replication
                     anf_client.volumes.delete_replication(resource_group,
                                                           account_name,
                                                           pool_name,
@@ -363,9 +380,10 @@ def run_example():
                     if e.status_code == 404: # If replication is not found then the volume can be safely deleted. Therefore we pass on this error and proceed to delete the volume
                         pass
                     else: # Throw all other exceptions
-                        console_output("An error occurred while deleting replication: {}".format(e.message))
+                        console_output("An error occurred while breaking/deleting replication: {}".format(e.message))
                         raise
 
+                console_output("Deleting volume...")
                 anf_client.volumes.delete(resource_group,
                                           account_name,
                                           pool_name,
