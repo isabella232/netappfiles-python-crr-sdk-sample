@@ -8,10 +8,12 @@ import os
 import json
 import time
 import resource_uri_utils
-from azure.common.credentials import ServicePrincipalCredentials
-from azure.mgmt.netapp import AzureNetAppFilesManagementClient
+from azure.core.exceptions import HttpResponseError, \
+    ResourceNotFoundError
+from azure.identity import ClientSecretCredential
+from azure.mgmt.netapp import NetAppManagementClient
+from azure.mgmt.netapp.models import ReplicationStatus
 from datetime import datetime
-from msrestazure.azure_exceptions import CloudError
 
 def print_header(header_string):
     print(header_string)
@@ -36,10 +38,10 @@ def get_credentials():
 
     subscription_id = credential_info['subscriptionId']
 
-    credentials = ServicePrincipalCredentials(
+    credentials = ClientSecretCredential(
         client_id=credential_info['clientId'],
-        secret=credential_info['clientSecret'],
-        tenant=credential_info['tenantId']
+        client_secret=credential_info['clientSecret'],
+        tenant_id=credential_info['tenantId']
     )
     return credentials, subscription_id
 
@@ -91,7 +93,7 @@ def wait_for_no_anf_resource(client, resource_id, interval_in_sec=10, retries=60
     if polling reached out maximum retries.
 
     Args:
-        client (AzureNetAppFilesManagementClient): Azure Resource Provider
+        client (NetAppManagementClient): Azure Resource Provider
             Client designed to interact with ANF resources
         resource_id (string): Resource Id of the resource to be checked upon
         interval_in_sec (int): Interval used between checks
@@ -131,7 +133,7 @@ def wait_for_no_anf_resource(client, resource_id, interval_in_sec=10, retries=60
                     resource_uri_utils.get_resource_group(resource_id),
                     resource_uri_utils.get_anf_account(resource_id)
                 )
-        except CloudError as ex:
+        except ResourceNotFoundError as ex:
             break
 
 
@@ -143,7 +145,7 @@ def wait_for_anf_resource(client, resource_id, interval_in_sec=10, retries=60, r
     or if polling reached out maximum retries.
 
     Args:
-        client (AzureNetAppFilesManagementClient): Azure Resource Provider
+        client (NetAppManagementClient): Azure Resource Provider
             Client designed to interact with ANF resources
         resource_id (string): Resource Id of the resource to be checked upon
         interval_in_sec (int): Interval used between checks
@@ -185,8 +187,68 @@ def wait_for_anf_resource(client, resource_id, interval_in_sec=10, retries=60, r
                 )
                 
             break
-        except CloudError as ex:
+        except ResourceNotFoundError as ex:
             pass
+
+
+def wait_for_mirrored_status(client, resource_group, account_name, pool_name, volume_name, interval_in_sec=10, retries=60):
+    """Waits for a volume to have "Mirrored" status
+
+    This function checks if a specific volume that was enabled for CRR has 
+    reached "Mirrored" status. This allows the replication to be broken. It breaks
+    the wait if the status is reached or if polling reaches maximum retries.
+
+    Args:
+        client (NetAppManagementClient): Azure Resource Provider
+            Client designed to interact with ANF resources
+        resource_group (string): Name of the resource group where the
+            volume exists, it needs to be the same as the account
+        account_name (string): Name of the Azure NetApp Files Account where
+            the capacity pool holding the volume exists
+        pool_name (string): Capacity pool name where volume exists
+        volume_name (string): Volume name
+        interval_in_sec (int): Interval used between checks
+        retires (int): Number of times a poll will be performed
+    """
+
+    for i in range(retries):
+        time.sleep(interval_in_sec)
+        current_status = client.volumes.replication_status(resource_group,
+                                                            account_name,
+                                                            pool_name,
+                                                            volume_name)
+        if current_status.mirror_state == "Mirrored":
+            break
+
+
+def wait_for_broken_status(client, resource_group, account_name, pool_name, volume_name, interval_in_sec=10, retries=60):
+    """Waits for a volume to have "Broken" status
+
+    This function checks if a specific volume that was enabled for CRR has 
+    reached "Broken" status. This allows the volume to be deleted. It breaks
+    the wait if the status is reached or if polling reaches maximum retries.
+
+    Args:
+        client (NetAppManagementClient): Azure Resource Provider
+            Client designed to interact with ANF resources
+        resource_group (string): Name of the resource group where the
+            volume exists, it needs to be the same as the account
+        account_name (string): Name of the Azure NetApp Files Account where
+            the capacity pool holding the volume exists
+        pool_name (string): Capacity pool name where volume exists
+        volume_name (string): Volume name
+        interval_in_sec (int): Interval used between checks
+        retires (int): Number of times a poll will be performed
+    """
+
+    for i in range(retries):
+        time.sleep(interval_in_sec)
+        current_status = client.volumes.replication_status(resource_group,
+                                                           account_name,
+                                                           pool_name,
+                                                           volume_name)
+        if current_status.mirror_state == "Broken":
+            break
 
 
 def resource_exists(resource_client, resource_id, api_version):
@@ -203,12 +265,12 @@ def resource_exists(resource_client, resource_id, api_version):
 
     try:
         return resource_client.resources.check_existence_by_id(resource_id, api_version)
-    except CloudError as e:
+    except HttpResponseError as e:
         if e.status_code == 405: # HEAD not supported
             try:
                 resource_client.resources.get_by_id(resource_id, api_version)
                 return True
-            except CloudError as ie:
+            except HttpResponseError as ie:
                 if ie.status_code == 404:
                     return False
         raise # If not 405 or 404, not expected
