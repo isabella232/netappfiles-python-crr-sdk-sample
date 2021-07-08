@@ -9,7 +9,7 @@ from azure.mgmt.netapp import NetAppManagementClient
 from azure.mgmt.netapp.models import NetAppAccount, CapacityPool, Volume, ExportPolicyRule, \
     VolumePropertiesExportPolicy, VolumePropertiesDataProtection, ReplicationObject, AuthorizeRequest
 from azure.mgmt.resource import ResourceManagementClient
-from sample_utils import console_output, print_header, get_credentials, resource_exists, wait_for_broken_status, wait_for_mirrored_status, wait_for_no_anf_resource, wait_for_anf_resource
+from sample_utils import MirrorState, console_output, print_header, get_credentials, resource_exists, wait_for_mirror_state, wait_for_no_anf_resource, wait_for_anf_resource
 
 
 # ------------------------------------------IMPORTANT------------------------------------------------------------------
@@ -365,7 +365,7 @@ def run_example():
                     (current_volume.data_protection.replication.endpoint_type == "dst" or current_volume.data_protection.replication.additional_properties["endPointType"] == "Dst"):
                     console_output("Deleting replication on Volume {}".format(volume_id))
                     try:
-                        wait_for_mirrored_status(anf_client, resource_group, account_name, pool_name, volume_name)
+                        wait_for_mirror_state(anf_client, resource_group, account_name, pool_name, volume_name, MirrorState.MIRRORED)
 
                         anf_client.volumes.begin_break_replication(resource_group,
                                                                 account_name,
@@ -379,7 +379,7 @@ def run_example():
                             raise
                     
                     try:
-                        wait_for_broken_status(anf_client, resource_group, account_name, pool_name, volume_name)
+                        wait_for_mirror_state(anf_client, resource_group, account_name, pool_name, volume_name, MirrorState.BROKEN)
 
                         anf_client.volumes.begin_delete_replication(resource_group,
                                                             account_name,
