@@ -16,7 +16,7 @@ from azure.mgmt.netapp.models import ReplicationStatus
 from datetime import datetime
 from enum import Enum
 
-class MirrorState(Enum):
+class mirror_state(Enum):
     UNINITIALIZED = "Uninitialized"
     MIRRORED = "Mirrored"
     BROKEN = "Broken"
@@ -214,7 +214,7 @@ def wait_for_mirror_state(client, resource_group, account_name, pool_name, volum
             the capacity pool holding the volume exists
         pool_name (string): Capacity pool name where volume exists
         volume_name (string): Volume name
-        anticipated_mirror_state (MirrorState): enum that represents which mirror 
+        anticipated_mirror_state (mirror_state): enum that represents which mirror 
             state we are waiting for
         interval_in_sec (int): Interval used between checks
         retires (int): Number of times a poll will be performed
