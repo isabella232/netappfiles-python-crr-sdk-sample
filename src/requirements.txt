@@ -1,2 +1,3 @@
-azure-mgmt-netapp>=0.12.0
-azure-mgmt-resource>=10.2.0
+azure-mgmt-netapp==3.0.0
+azure-mgmt-resource==18.0.0
+azure-identity==1.6.0
